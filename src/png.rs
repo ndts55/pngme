@@ -1,5 +1,7 @@
 use crate::chunk::Chunk;
 use std::convert::{TryFrom, TryInto};
+use std::fmt::Display;
+use std::string::ToString;
 
 pub struct Png {
     header: [u8; 8],
@@ -10,6 +12,34 @@ impl Png {
     pub const STANDARD_HEADER: [u8; 8] = [
         0x89u8, 0x50u8, 0x4eu8, 0x47u8, 0x0du8, 0x0au8, 0x1au8, 0x0au8,
     ];
+
+    fn from_chunks(chunks: Vec<Chunk>) -> Png {
+        todo!()
+    }
+
+    fn append_chunk(&mut self, chunk: Chunk) {
+        todo!()
+    }
+
+    fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, &'static str> {
+        todo!()
+    }
+
+    fn header(&self) -> &[u8; 8] {
+        todo!()
+    }
+
+    fn chunks(&self) -> &[Chunk] {
+        todo!()
+    }
+
+    fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+        todo!()
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        todo!()
+    }
 }
 
 impl TryFrom<&[u8]> for Png {
@@ -27,26 +57,33 @@ impl TryFrom<&[u8]> for Png {
         // length: 4, type: 4, data: length, crc: 4
         // total: length + 12
         let mut chunks = Vec::new();
-        let mut counter = 0;
-        while counter <= data_bytes.len() {
-            let length_bytes: [u8; 4] = (counter..counter + 4)
-                .filter_map(|i| data_bytes.get(i))
-                .cloned()
-                .collect::<Vec<u8>>()
-                .as_slice()
+        let mut pointer = 0;
+        while pointer < data_bytes.len() {
+            if pointer + 4 >= data_bytes.len() {
+                return Err("data slice too short - can't read length");
+            }
+            let length_bytes: [u8; 4] = data_bytes[pointer..pointer + 4]
                 .try_into()
-                .map_err(|_| "invalid length")?;
+                .map_err(|_| "error reading length bytes")?;
             let length = u32::from_be_bytes(length_bytes);
-            let chunk_bytes = (counter..counter + (length as usize) + 12)
-                .filter_map(|i| data_bytes.get(i))
-                .cloned()
-                .collect::<Vec<u8>>();
-            let chunk = Chunk::try_from(chunk_bytes.as_slice())?;
+            let next_pointer = pointer + length as usize + 12;
+            if next_pointer >= data_bytes.len() {
+                return Err("data slice too short - can't read data");
+            }
+            let chunk_bytes = &data_bytes[pointer..next_pointer];
+            let chunk = Chunk::try_from(chunk_bytes)?;
             chunks.push(chunk);
-            counter += length as usize + 12;
+            pointer = next_pointer;
         }
 
         Ok(Png { header, chunks })
+    }
+}
+
+impl Display for Png {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let chunk_str: String = self.chunks.iter().map(Chunk::to_string).collect();
+        write!(f, "{:?}\n{:?}", self.header, chunk_str)
     }
 }
 
