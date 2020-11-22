@@ -2,6 +2,7 @@ use crate::chunk_type::ChunkType;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 
+#[derive(Debug)]
 pub struct Chunk {
     length: u32,
     chunk_type: ChunkType,
@@ -11,7 +12,6 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new(chunk_type: ChunkType, data: Vec<u8>) -> Chunk {
-        let length = (chunk_type.bytes().len() + data.len()) as u32;
         let relevant_data: Vec<u8> = chunk_type
             .bytes()
             .iter()
@@ -20,7 +20,7 @@ impl Chunk {
             .collect();
         let crc = crc::crc32::checksum_ieee(relevant_data.as_slice());
         Chunk {
-            length,
+            length: data.len() as u32,
             chunk_type,
             data,
             crc,
@@ -66,35 +66,35 @@ impl TryFrom<&[u8]> for Chunk {
     type Error = &'static str;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        // 4 bytes length, 4 bytes type, length bytes data, 4 bytes crc
         // extract length in first 4 bytes
         let (length_bytes, rest) = value.split_at(4);
         let length_bytes: [u8; 4] = length_bytes
             .try_into()
             .map_err(|_| "data length incorrect length")?;
         let length = u32::from_be_bytes(length_bytes);
-        // extract crc in last 4 bytes
-        let (data_bytes, crc_bytes) = rest.split_at(rest.len() - 4);
-        let crc_bytes: [u8; 4] = crc_bytes.try_into().map_err(|_| "crc incorrect length")?;
-        let crc = u32::from_be_bytes(crc_bytes);
-        // calculate and check crc
-        if crc != crc::crc32::checksum_ieee(data_bytes) {
-            return Err("crc invalid");
-        }
         // extract chunk type in second 4 bytes
-        let (chunk_type_bytes, message_bytes) = data_bytes.split_at(4);
+        let (chunk_type_bytes, rest) = rest.split_at(4);
         let chunk_type_bytes: [u8; 4] = chunk_type_bytes
             .try_into()
             .map_err(|_| "chunk type incorrect length")?;
         let chunk_type = ChunkType::new(chunk_type_bytes);
-        // message {data_length} bytes?
+        // extract message and crc
+        let (message_bytes, crc_bytes) = rest.split_at(length as usize);
         let message: Vec<u8> = Vec::from(message_bytes);
+        let crc_bytes: [u8; 4] = crc_bytes.try_into().map_err(|_| "crc incorrect length")?;
+        let crc = u32::from_be_bytes(crc_bytes);
 
-        Ok(Chunk {
-            length,
-            chunk_type,
-            data: message,
-            crc,
-        })
+        let chunk = Chunk::new(chunk_type, message);
+
+        if crc != chunk.crc {
+            println!("crc in bytes: {:?}", crc);
+            println!("{:?}", chunk);
+            println!("value: {:?}", value);
+            return Err("crc invalid");
+        }
+
+        Ok(chunk)
     }
 }
 

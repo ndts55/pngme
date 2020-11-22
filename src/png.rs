@@ -3,6 +3,7 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 use std::string::ToString;
 
+#[derive(Debug)]
 pub struct Png {
     header: [u8; 8],
     chunks: Vec<Chunk>,
@@ -14,31 +15,56 @@ impl Png {
     ];
 
     fn from_chunks(chunks: Vec<Chunk>) -> Png {
-        todo!()
+        Png {
+            header: Png::STANDARD_HEADER,
+            chunks,
+        }
     }
 
     fn append_chunk(&mut self, chunk: Chunk) {
-        todo!()
+        self.chunks.push(chunk);
     }
 
     fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, &'static str> {
-        todo!()
+        let type_bytes: [u8; 4] = chunk_type
+            .as_bytes()
+            .try_into()
+            .map_err(|_| "chunk_type is not valid chunk type")?;
+        if let Some(pos) = self
+            .chunks
+            .iter()
+            .position(|chunk| chunk.chunk_type().bytes() == type_bytes)
+        {
+            Ok(self.chunks.remove(pos))
+        } else {
+            Err("chunk type not found")
+        }
     }
 
     fn header(&self) -> &[u8; 8] {
-        todo!()
+        &self.header
     }
 
     fn chunks(&self) -> &[Chunk] {
-        todo!()
+        &self.chunks
     }
 
     fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
-        todo!()
+        // return first chunk with chunk type = chunk_type
+        let type_bytes: [u8; 4] = chunk_type.as_bytes().try_into().ok()?;
+        self.chunks
+            .iter()
+            .find(|chunk| chunk.chunk_type().bytes() == type_bytes)
     }
 
     fn as_bytes(&self) -> Vec<u8> {
-        todo!()
+        let chunk_bytes: Vec<u8> = self.chunks.iter().map(Chunk::as_bytes).flatten().collect();
+
+        self.header
+            .iter()
+            .chain(chunk_bytes.iter())
+            .copied()
+            .collect()
     }
 }
 
@@ -47,36 +73,39 @@ impl TryFrom<&[u8]> for Png {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let (header_bytes, data_bytes) = value.split_at(Png::STANDARD_HEADER.len());
-        let header: [u8; 8] = header_bytes
-            .try_into()
-            .map_err(|_| "header incorrect length")?;
+        if header_bytes != Png::STANDARD_HEADER {
+            return Err("header is not standard header");
+        }
 
-        // read 4 bytes from data_bytes, convert to u32 and pass
-        // that number of bytes + 8 to Chunk::try_from(value: &[u8])
-        // to obtain a chunk
-        // length: 4, type: 4, data: length, crc: 4
-        // total: length + 12
         let mut chunks = Vec::new();
-        let mut pointer = 0;
-        while pointer < data_bytes.len() {
-            if pointer + 4 >= data_bytes.len() {
+        let mut index = 0;
+        while index < data_bytes.len() {
+            // try to read 4 bytes and convert them to length: u32
+            if index + 4 >= data_bytes.len() {
                 return Err("data slice too short - can't read length");
             }
-            let length_bytes: [u8; 4] = data_bytes[pointer..pointer + 4]
+            let length_bytes: [u8; 4] = data_bytes[index..index + 4]
                 .try_into()
                 .map_err(|_| "error reading length bytes")?;
             let length = u32::from_be_bytes(length_bytes);
-            let next_pointer = pointer + length as usize + 12;
-            if next_pointer >= data_bytes.len() {
+
+            // try to read length + 12 bytes and convert them to chunk: Chunk
+            let next_index = index + length as usize + 12;
+            if next_index > data_bytes.len() {
                 return Err("data slice too short - can't read data");
             }
-            let chunk_bytes = &data_bytes[pointer..next_pointer];
+            let chunk_bytes = &data_bytes[index..next_index];
             let chunk = Chunk::try_from(chunk_bytes)?;
+
+            // push the new chunk and set the new pointer for the next iteration
             chunks.push(chunk);
-            pointer = next_pointer;
+            index = next_index;
         }
 
-        Ok(Png { header, chunks })
+        Ok(Png {
+            header: Png::STANDARD_HEADER,
+            chunks,
+        })
     }
 }
 
@@ -133,6 +162,8 @@ mod tests {
             .flat_map(|chunk| chunk.as_bytes())
             .collect();
 
+        println!("chunk bytes: {:?}", chunk_bytes);
+
         let bytes: Vec<u8> = Png::STANDARD_HEADER
             .iter()
             .chain(chunk_bytes.iter())
@@ -140,6 +171,8 @@ mod tests {
             .collect();
 
         let png = Png::try_from(bytes.as_ref());
+
+        println!("{:?}", png);
 
         assert!(png.is_ok());
     }
@@ -225,7 +258,9 @@ mod tests {
 
     #[test]
     fn test_as_bytes() {
-        let png = Png::try_from(&PNG_FILE[..]).unwrap();
+        let png = Png::try_from(&PNG_FILE[..]);
+        println!("result: {:?}", png);
+        let png = png.unwrap();
         let actual = png.as_bytes();
         let expected: Vec<u8> = PNG_FILE.iter().copied().collect();
         assert_eq!(actual, expected);
@@ -237,6 +272,8 @@ mod tests {
             .into_iter()
             .flat_map(|chunk| chunk.as_bytes())
             .collect();
+
+        println!("chunk bytes: {:?}", chunk_bytes);
 
         let bytes: Vec<u8> = Png::STANDARD_HEADER
             .iter()
