@@ -21,11 +21,11 @@ impl Png {
         }
     }
 
-    fn append_chunk(&mut self, chunk: Chunk) {
+    pub fn append_chunk(&mut self, chunk: Chunk) {
         self.chunks.push(chunk);
     }
 
-    fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, &'static str> {
+    pub fn remove_chunk(&mut self, chunk_type: &str) -> Result<Chunk, &'static str> {
         let type_bytes: [u8; 4] = chunk_type
             .as_bytes()
             .try_into()
@@ -49,7 +49,7 @@ impl Png {
         &self.chunks
     }
 
-    fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
+    pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
         // return first chunk with chunk type = chunk_type
         let type_bytes: [u8; 4] = chunk_type.as_bytes().try_into().ok()?;
         self.chunks
@@ -57,7 +57,7 @@ impl Png {
             .find(|chunk| chunk.chunk_type().bytes() == type_bytes)
     }
 
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         let chunk_bytes: Vec<u8> = self.chunks.iter().map(Chunk::as_bytes).flatten().collect();
 
         self.header
