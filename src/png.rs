@@ -41,14 +41,6 @@ impl Png {
         }
     }
 
-    fn header(&self) -> &[u8; 8] {
-        &self.header
-    }
-
-    fn chunks(&self) -> &[Chunk] {
-        &self.chunks
-    }
-
     pub fn chunk_by_type(&self, chunk_type: &str) -> Option<&Chunk> {
         // return first chunk with chunk type = chunk_type
         let type_bytes: [u8; 4] = chunk_type.as_bytes().try_into().ok()?;
@@ -102,17 +94,16 @@ impl TryFrom<&[u8]> for Png {
             index = next_index;
         }
 
-        Ok(Png {
-            header: Png::STANDARD_HEADER,
-            chunks,
-        })
+        Ok(Png::from_chunks(chunks))
     }
 }
 
 impl Display for Png {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chunk_str: String = self.chunks.iter().map(Chunk::to_string).collect();
-        write!(f, "{:?}\n{:?}", self.header, chunk_str)
+        let header: Vec<String> = self.header.iter().map(|e| e.to_string()).collect();
+        let header_str = format!("[{}]", header.join(", "));
+        write!(f, "header: {}\nchunks:\n{}", header_str, chunk_str)
     }
 }
 
@@ -152,7 +143,7 @@ mod tests {
         let chunks = testing_chunks();
         let png = Png::from_chunks(chunks);
 
-        assert_eq!(png.chunks().len(), 3);
+        assert_eq!(png.chunks.len(), 3);
     }
 
     #[test]
@@ -220,7 +211,7 @@ mod tests {
     #[test]
     fn test_list_chunks() {
         let png = testing_png();
-        let chunks = png.chunks();
+        let chunks = png.chunks;
         assert_eq!(chunks.len(), 3);
     }
 

@@ -27,20 +27,8 @@ impl Chunk {
         }
     }
 
-    pub fn length(&self) -> u32 {
-        self.length
-    }
-
     pub fn chunk_type(&self) -> &ChunkType {
         &self.chunk_type
-    }
-
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
-    pub fn crc(&self) -> u32 {
-        self.crc
     }
 
     pub fn data_as_string(&self) -> Result<String, ()> {
@@ -100,7 +88,14 @@ impl TryFrom<&[u8]> for Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.data_as_string().unwrap_or(String::from("")))
+        write!(
+            f,
+            "\t|length: {},\tchunk_type: {},\tdata: {},\tcrc: {}\t|\n",
+            self.length,
+            self.chunk_type,
+            self.data_as_string().unwrap_or(String::from("")),
+            self.crc
+        )
     }
 }
 
@@ -130,7 +125,7 @@ mod tests {
     #[test]
     fn test_chunk_length() {
         let chunk = testing_chunk();
-        assert_eq!(chunk.length(), 42);
+        assert_eq!(chunk.length, 42);
     }
 
     #[test]
@@ -150,7 +145,7 @@ mod tests {
     #[test]
     fn test_chunk_crc() {
         let chunk = testing_chunk();
-        assert_eq!(chunk.crc(), 2882656334);
+        assert_eq!(chunk.crc, 2882656334);
     }
 
     #[test]
@@ -174,10 +169,10 @@ mod tests {
         let chunk_string = chunk.data_as_string().unwrap();
         let expected_chunk_string = String::from("This is where your secret message will be!");
 
-        assert_eq!(chunk.length(), 42);
+        assert_eq!(chunk.length, 42);
         assert_eq!(chunk.chunk_type().to_string(), String::from("RuSt"));
         assert_eq!(chunk_string, expected_chunk_string);
-        assert_eq!(chunk.crc(), 2882656334);
+        assert_eq!(chunk.crc, 2882656334);
     }
 
     #[test]
