@@ -14,8 +14,8 @@ pub enum Args {
         #[structopt()]
         message: String,
 
-        #[structopt()]
-        output_file: Option<String>,
+        #[structopt(parse(from_os_str))]
+        output_file: Option<PathBuf>,
     },
 
     Decode {
