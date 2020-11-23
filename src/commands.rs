@@ -72,7 +72,7 @@ fn read_file(file_path: PathBuf) -> io::Result<Png> {
 }
 
 fn write_file(file_path: PathBuf, png: Png) -> io::Result<()> {
-    let mut file = File::open(file_path)?;
+    let mut file = File::create(file_path)?;
     file.write_all(png.as_bytes().as_ref())?;
     Ok(())
 }
